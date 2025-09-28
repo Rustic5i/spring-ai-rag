@@ -40,7 +40,7 @@ public class BorisovLLMApplication {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) {
         return builder.defaultAdvisors(getHistoryAdvisor()
-//                , getRagAdviser()
+                , getRagAdviser()
         ).build();
     }
 
