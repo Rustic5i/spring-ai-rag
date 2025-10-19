@@ -37,10 +37,9 @@ public class PostgresChatMemory implements ChatMemory {
         Chat chat = chatMemoryRepository.findById(Long.valueOf(conversationId)).orElseThrow();
         int messageToSkip = Math.max(0, chat.getHistory().size() - maxMessages);
         return chat.getHistory().stream()
-//                .sorted(Comparator.comparing(ChatEntry::getCreatedAt)) //Закоментировали так как сортериуем на уровне entity @OrderBy("createdAt ASC")
                 .skip(messageToSkip)
                 .map(ChatEntry::toMessage)
-                .limit(maxMessages)
+//                .limit(maxMessages)
                 .toList();
 
     }

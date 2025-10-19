@@ -1,0 +1,272 @@
+## Введение
+Доклад Евгения Борисова "Spring-потрошитель" - один из самых популярных материалов в русскоязычном Java-сообществе с более чем 500,000 просмотров. Хотя доклад был создан около 11 лет назад (упоминается Java 7), его содержание остается актуальным для понимания внутренних механизмов Spring.
+Евгения Борисов страдает от аллергии на весну, но при этом люблю Spring — вот такой парадокс.
+
+## Основные темы доклада
+- Составляющие Spring и его жизненный цикл
+- Четыре вида контекста и создание пятого
+- Нестандартные возможности Spring
+- Влияние Spring на производительность
+
+## Начало работы со Spring
+Spring начался 26 ноября 2003 года с появления **XmlBeanDefinitionReader** - компонента, позволяющего настраивать контекст через XML. Этот компонент сканирует XML-файлы и преобразует их в BeanDefinition - объекты с информацией о бинах.
+
+### Пример базовой конфигурации
+```java
+// Интерфейс Quoter
+public interface Quoter {
+  void sayQuote();
+}
+
+// Реализация
+public class TerminatorQuoter implements Quoter {
+    private String message;
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    @Override
+    public void sayQuote() {
+        System.out.println("message = " + message);
+    }
+}
+```
+
+```xml
+<!-- XML-конфигурация -->
+<bean class="quoters.TerminatorQuoter" id="terminatorQuoter">
+    <property name="message" value="I'll be back"/>
+</bean>
+```
+
+```java
+// Использование контекста
+public class Main {
+    public static void main(String[] args) {
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("context.xml");
+        context.getBean(TerminatorQuoter.class).sayQuote();
+    }
+}
+```
+
+## Внутренний механизм Spring
+
+Центральный компонент Spring - **BeanFactory**, отвечающий за создание и хранение синглтон-объектов. Процесс работы:
+
+1. BeanDefinitionReader считывает декларации бинов из XML
+2. Создаются BeanDefinition с информацией о классах, init-методах, свойствах
+3. BeanFactory создает объекты на основе BeanDefinition и помещает их в контейнер
+
+Важно: синглтоны создаются при поднятии контекста, а прототипы - только при запросе. Поэтому destroy-методы работают только для синглтонов.
+
+## BeanPostProcessor
+
+BeanPostProcessor позволяет настраивать бины до их помещения в контейнер, используя паттерн "цепочка ответственности".
+
+### Пример создания кастомного BeanPostProcessor
+
+```java
+// Аннотация для инжекции случайных чисел
+@Retention(RetentionPolicy.RUNTIME)
+public @interface InjectRandomInt {
+    int min();
+    int max();
+}
+
+// BeanPostProcessor для обработки аннотации
+public class InjectRandomIntAnnotationBeanPostProcessor implements BeanPostProcessor {
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        Field[] fields = bean.getClass().getDeclaredFields();
+        for (Field field : fields) {
+            InjectRandomInt annotation = field.getAnnotation(InjectRandomInt.class);
+            if (annotation != null) {
+                int min = annotation.min();
+                int max = annotation.max();
+                Random random = new Random();
+                int i = min + random.nextInt(max - min);
+                field.setAccessible(true);
+                ReflectionUtils.setField(field, bean, i);
+            }
+        }
+        return bean;
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        return bean;
+    }
+}
+```
+
+## Init-методы и двухфазный конструктор
+
+Spring предлагает несколько способов инициализации бинов:
+- XML-атрибут init-method
+- Аннотация @PostConstruct
+- Интерфейс InitializingBean (устаревший)
+
+Важное отличие от конструктора: init-методы вызываются после настройки бина Spring'ом, когда все зависимости уже инжектированы.
+
+### Двухфазный конструктор
+```java
+public class TerminatorQuoter implements Quoter {
+    @InjectRandomInt(min = 2, max = 7)
+    private int repeat;
+    private String message;
+
+    // Фаза 1 - стандартный конструктор Java
+    public TerminatorQuoter() {
+        System.out.println("Phase 1");
+        System.out.println(repeat); // Будет 0, т.к. инжекция еще не произошла
+    }
+
+    // Фаза 2 - после настройки бина Spring'ом
+    @PostConstruct
+    public void init() {
+        System.out.println("Phase 2");
+        System.out.println(repeat); // Уже будет случайное число
+    }
+
+    @Override
+    public void sayQuote() {
+        for (int i = 0; i < repeat; i++) {
+            System.out.println("message = " + message);
+        }
+    }
+}
+```
+
+## Dynamic Proxy
+
+Spring использует прокси для добавления функциональности к бинам (AOP). Существует два подхода:
+1. **Dynamic Proxy** - создание класса, имплементирующего те же интерфейсы
+2. **CGLib** - наследование от оригинального класса
+
+Spring предпочитает Dynamic Proxy, если у класса есть интерфейсы, и использует CGLib только если интерфейсов нет.
+
+### Пример создания прокси для профилирования
+
+```java
+// Аннотация для профилирования
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Profiling {}
+
+// Контроллер для управления профилированием через JMX
+public class ProfilingController implements ProfilingControllerMBean {
+    private boolean enabled = false;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+}
+
+// Интерфейс для JMX
+public interface ProfilingControllerMBean {
+    void setEnabled(boolean enabled);
+}
+
+// BeanPostProcessor для профилирования
+public class ProfilingHandlerBeanPostProcessor implements BeanPostProcessor {
+    private Map<String, Class> map = new HashMap<>();
+    private ProfilingController controller = new ProfilingController();
+
+    public ProfilingHandlerBeanPostProcessor() throws Exception {
+        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
+        platformMBeanServer.registerMBean(controller, new ObjectName("profiling", "name", "controller"));
+    }
+
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        Class<?> beanClass = bean.getClass();
+        if (beanClass.isAnnotationPresent(Profiling.class)) {
+            map.put(beanName, beanClass);
+        }
+        return bean;
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(final Object bean, String beanName) throws BeansException {
+        Class beanClass = map.get(beanName);
+        if (beanClass != null) {
+            return Proxy.newProxyInstance(beanClass.getClassLoader(), beanClass.getInterfaces(),
+                new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        if (controller.isEnabled()) {
+                            System.out.println("ПРОФИЛИРУЮ");
+                            long before = System.nanoTime();
+                            Object retVal = method.invoke(bean, args);
+                            long after = System.nanoTime();
+                            System.out.println(after - before);
+                            System.out.println("ВСЁ");
+                            return retVal;
+                        } else {
+                            return method.invoke(bean, args);
+                        }
+                    }
+                });
+        }
+        return bean;
+    }
+}
+```
+
+## ApplicationListener и трехфазный конструктор
+
+ApplicationListener позволяет слушать события контекста Spring. Наиболее полезное событие - ContextRefreshedEvent, которое происходит после полной настройки контекста.
+
+### Трехфазный конструктор
+
+```java
+// Аннотация для методов, которые должны выполняться после создания прокси
+@Retention(RetentionPolicy.RUNTIME)
+public @interface PostProxy {}
+
+// Listener для выполнения методов с @PostProxy
+public class PostProxyInvokerContextListener implements ApplicationListener<ContextRefreshedEvent> {
+    @Autowired
+    private ConfigurableListableBeanFactory factory;
+
+    @Override
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        ApplicationContext context = event.getApplicationContext();
+        String[] names = context.getBeanDefinitionNames();
+        for (String name : names) {
+            BeanDefinition beanDefinition = factory.getBeanDefinition(name);
+            String originalClassName = beanDefinition.getBeanClassName();
+            try {
+                Class<?> originalClass = Class.forName(originalClassName);
+                Method[] methods = originalClass.getMethods();
+                for (Method method : methods) {
+                    if (method.isAnnotationPresent(PostProxy.class)) {
+                        Object bean = context.getBean(name);
+                        Method currentMethod = bean.getClass().getMethod(method.getName(), method.getParameterTypes());
+                        currentMethod.invoke(bean);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+Итоги трехфазного конструктора:
+1. **Фаза 1** - стандартный конструктор Java
+2. **Фаза 2** - @PostConstruct, выполняется после инжекции зависимостей
+3. **Фаза 3** - @PostProxy, выполняется после создания всех прокси
+
+## Важные замечания
+1. При получении бинов из контекста лучше использовать интерфейсы, а не конкретные классы
+2. Не инжектьте Spring-контекст в бизнес-логику
+3. BeanPostProcessor, меняющие класс бина, должны делать это в postProcessAfterInitialization
+4. Транзакции и другие аспекты работают только после создания прокси
+
+Этот материал представляет первую часть доклада "Spring-потрошитель" и содержит основные концепции внутреннего устройства Spring Framework.

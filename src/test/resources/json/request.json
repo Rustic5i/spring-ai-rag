@@ -1,0 +1,107 @@
+{
+  "prompt": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "15",
+        "properties": {
+          "messageType": "USER"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "16",
+        "toolCalls": [],
+        "metadata": {
+          "messageType": "ASSISTANT"
+        }
+      },
+      {
+        "role": "user",
+        "content": "17",
+        "properties": {
+          "messageType": "USER"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "18",
+        "toolCalls": [],
+        "metadata": {
+          "messageType": "ASSISTANT"
+        }
+      },
+      {
+        "role": "user",
+        "content": "19",
+        "properties": {
+          "messageType": "USER"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "20",
+        "toolCalls": [],
+        "metadata": {
+          "messageType": "ASSISTANT"
+        }
+      },
+      {
+        "role": "user",
+        "content": "21",
+        "properties": {
+          "messageType": "USER"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "22",
+        "toolCalls": [],
+        "metadata": {
+          "messageType": "ASSISTANT"
+        }
+      },
+      {
+        "role": "user",
+        "content": "23",
+        "properties": {
+          "messageType": "USER"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "24",
+        "toolCalls": [],
+        "metadata": {
+          "messageType": "ASSISTANT"
+        }
+      },
+      {
+        "role": "user",
+        "content": "25",
+        "properties": {
+          "messageType": "USER"
+        }
+      },
+      {
+        "role": "assistant",
+        "content": "26",
+        "toolCalls": [],
+        "metadata": {
+          "messageType": "ASSISTANT"
+        }
+      },
+      {
+        "role": "user",
+        "content": "27",
+        "properties": {
+          "messageType": "USER"
+        }
+      }
+    ],
+    "modelOptions": "org.springframework.ai.ollama.api.OllamaOptions@c156ba96"
+  },
+  "context": {
+    "chat_memory_conversation_id": 15
+  }
+}
